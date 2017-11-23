@@ -17,7 +17,8 @@ open class ItemBaseController<T: UIView>: UIViewController, ItemController, UIGe
 
     //UI
     public var itemView = T()
-    let scrollView = UIScrollView()
+    public var placeholderImage: UIImage?
+    public let scrollView = UIScrollView()
     let activityIndicatorView = UIActivityIndicatorView(activityIndicatorStyle: .white)
 
     //DELEGATE / DATASOURCE
@@ -199,20 +200,23 @@ open class ItemBaseController<T: UIView>: UIViewController, ItemController, UIGe
 
         fetchImageBlock { [weak self] image in
 
-            if let image = image {
+            DispatchQueue.main.async {
+                self?.activityIndicatorView.stopAnimating()
 
-                DispatchQueue.main.async {
-                    self?.activityIndicatorView.stopAnimating()
-
-                    var itemView = self?.itemView
-                    itemView?.image = image
+                var itemView = self?.itemView
+                itemView?.image = image ?? self?.placeholderImage
+                
+                if let image = image {
+                    self?.enableZoom(true)
                     itemView?.isAccessibilityElement = image.isAccessibilityElement
                     itemView?.accessibilityLabel = image.accessibilityLabel
                     itemView?.accessibilityTraits = image.accessibilityTraits
-
-                    self?.view.setNeedsLayout()
-                    self?.view.layoutIfNeeded()
+                } else {
+                    self?.enableZoom(false)
                 }
+
+                self?.view.setNeedsLayout()
+                self?.view.layoutIfNeeded()
             }
         }
     }
@@ -221,6 +225,7 @@ open class ItemBaseController<T: UIView>: UIViewController, ItemController, UIGe
         super.viewWillAppear(animated)
 
         self.delegate?.itemControllerWillAppear(self)
+        self.scrollView.setZoomScale(1.0, animated: false)
     }
 
     override open func viewDidAppear(_ animated: Bool) {
@@ -431,6 +436,15 @@ open class ItemBaseController<T: UIView>: UIViewController, ItemController, UIGe
         })
     }
 
+    func enableZoom(_ enable: Bool) {
+        itemView.contentMode = enable ? .scaleToFill : .center
+        scrollView.pinchGestureRecognizer?.isEnabled = enable
+        if !enable {
+            scrollView.minimumZoomScale = 1
+            scrollView.maximumZoomScale = 1
+        }
+    }
+    
     // MARK: - Present/Dismiss transitions
 
     public func presentItem(alongsideAnimation: () -> Void, completion: @escaping () -> Void) {
